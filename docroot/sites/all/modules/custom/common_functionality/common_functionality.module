@@ -15,6 +15,11 @@
   define( 'TID_IDEA_STATUS_READY_FOR_IMPLEMENTATION', 4 );
   define( 'TID_IDEA_STATUS_REJECTED', 3 );
   define( 'TID_IDEA_STATUS_UNDER_DEPARTMENT_REVIEW', 2 );
+  define( 'TID_IDEA_REJECTION_TOU_VIOLATION', 5 );
+  define( 'TID_IDEA_REJECTION_IDEA_ADMIN', 6 );
+  define( 'TID_IDEA_REJECTION_INSUFFICIENT_VOTES', 7 );
+  define( 'TID_IDEA_REJECTION_DEPARTMENT', 8 );
+  define( 'TID_IDEA_REJECTION_OTHER', 9 );
 
   function common_functionality_permission() {
     return array(
@@ -42,6 +47,105 @@
   }
   
   /**
+   * Implements hook_menu().
+   */
+  function common_functionality_menu() {
+
+    $items = array();
+
+    $items['admin/config/idea-engine'] = array(
+      'title' => 'Idea Engine',
+      'page callback' => 'common_functionality_placeholder_page',
+      'access callback' => 'user_access',
+      'access arguments' => array(PERM_IDEA_ADMIN),
+    );
+    
+    $items['admin/config/idea-engine/settings'] = array(
+      'title' => 'Idea Engine settings',
+      'page callback' => 'common_functionality_settings_page',
+      'access callback' => 'user_access',
+      'access arguments' => array(PERM_IDEA_ADMIN),
+    );
+    
+    return $items;
+  }
+  
+  function common_functionality_placeholder_page() {
+    $out = '<h3>Welcome to the Idea Engine custom admin pages.</h3>';
+    return $out;
+  }
+  
+  // Settings form for custom Idea Engine settings
+  function common_functionality_settings_page() {
+    $form_id = 'common_functionality_settings_form';
+    $form_elements = drupal_get_form($form_id);
+    $output = drupal_render($form_elements);
+
+    return $output;
+  }
+
+  function common_functionality_settings_form() {
+    $form = array();
+    
+    $form['idea_vote_count_threshold'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Number of votes threshold'),
+      '#description' => 'The number of votes required for an idea to be considered by the department.',
+      '#default_value' => variable_get('idea_vote_count_threshold',25),
+    );
+    
+    $form['idea_vote_average_threshold'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Average vote threshold'),
+      '#description' => 'The average vote value (expressed as a PERCENTAGE) required for an idea to be considered by the department.',
+      '#default_value' => variable_get('idea_vote_average_threshold',80),
+    );
+
+    $form['idea_voting_period_duration'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Duration of voting period'),
+      '#description' => 'Number of days during which an idea may be voted upon.',
+      '#default_value' => variable_get('idea_voting_period_duration',90),
+    );
+    
+    $form['idea_days_remaining_for_voting_warning'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Send voting reminder after this many days'),
+      '#description' => 'Send warning emails to that the idea will expire after this many days.',
+      '#default_value' => variable_get('idea_days_remaining_for_voting_warning',30),
+    );
+    
+    $form['idea_department_reminder_email_interval'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Send reminder emails to the department every X days'),
+      '#description' => 'Reminder emails will be sent to the department about ideas at intervals of this many days.',
+      '#default_value' => variable_get('idea_department_reminder_email_interval',15),
+    );
+    
+    $form = system_settings_form($form);
+    return $form;
+  }
+  
+  /**
+   * Report a message to screen and log it
+   */
+  function _common_functionality_report_and_log($message, $status, $watchdog_type) {
+    // Convert status into dsm and watchdog statuses
+    switch( $status ) :
+      default:
+        $dsm_status = 'status';
+        $watchdog_status = WATCHDOG_DEBUG;
+      break;
+    endswitch;
+    
+    // Log to DB
+    watchdog($watchdog_type, $message, array(), $watchdog_status);
+    
+    // Report to screen
+    drupal_set_message( $message, $dsm_status );
+  }
+  
+  /**
    * Take a date and return an array formatted for a drupal date field on a node
    */
   function _common_functionality_date_to_field( $date, $timezone = 'America/New_York' ) {
@@ -55,4 +159,16 @@
     );
 
     return $out;
+  }
+  
+  /**
+   * Helper function to quickly update an Idea node's workflow status
+   */
+  function _common_functionality_update_idea_node_workflow_status($node, $status) {
+    // Update status
+    $node->field_workflow_state[LANGUAGE_NONE][0] = array('tid' => $status);
+    node_save($node);
+    
+    // Report
+    _common_functionality_report_and_log( 'Idea '.l($node->title, 'node/'.$node->nid).' had workflow status set to TID: '.$status, 'debug', 'common_functionality');
   }

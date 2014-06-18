@@ -75,9 +75,12 @@
         case 'reject_idea':
           // Users can reject ideas at any time if they are have sufficient perms. Otherwise, the idea can only be rejected at specific points in the workflow
           if(
-            user_access(PERM_IDEA_ADMIN)
-            || ( empty($GLOBALS['nodes']['page_node']->field_reviewed_for_terms_of_use[LANGUAGE_NONE][0]['value']) && user_access(PERM_REVIEW_NEW_IDEAS) )
-            || ( $GLOBALS['nodes']['page_node']->field_workflow_state[LANGUAGE_NONE][0]['tid'] == TID_IDEA_STATUS_UNDER_DEPARTMENT_REVIEW && user_access(PERM_PLAN_IDEA_IMPLEMENTATION) )
+            $GLOBALS['nodes']['page_node']->field_workflow_state[LANGUAGE_NONE][0]['tid'] != TID_IDEA_STATUS_REJECTED // Can't reject and idea that is already rejected
+            && (
+              user_access(PERM_IDEA_ADMIN)
+              || ( empty($GLOBALS['nodes']['page_node']->field_reviewed_for_terms_of_use[LANGUAGE_NONE][0]['value']) && user_access(PERM_REVIEW_NEW_IDEAS) )
+              || ( $GLOBALS['nodes']['page_node']->field_workflow_state[LANGUAGE_NONE][0]['tid'] == TID_IDEA_STATUS_UNDER_DEPARTMENT_REVIEW && user_access(PERM_PLAN_IDEA_IMPLEMENTATION) )
+            )
           ) :
             $block['subject'] = t('Reject Idea');
             $block['content'] = drupal_get_form( 'idea_forms_idea_reject_form' );
@@ -174,6 +177,9 @@
     // Save note that idea was reviewed
     $idea_node->field_reviewed_for_terms_of_use[LANGUAGE_NONE][0] = array('value' => 1);
     
+    // Set the date that this idea was approved to the current date
+    $idea_node->field_admin_approval_date[LANGUAGE_NONE][0] = _common_functionality_date_to_field( date('Y-m-d') );
+    
     // Set the department
     $idea_node->field_department[LANGUAGE_NONE][0] = array('target_id' => $form_state['values']['field_department']);
     // END - Update values
@@ -261,21 +267,13 @@
     endif;
     
     // BEGIN - Update values
-    // Set the approving UID
     $idea_node->field_rejected_by[LANGUAGE_NONE][0] = array('target_id' => $form_state['values']['reviewing_uid']);
-    
-    // Save note that idea was reviewed
     $idea_node->field_reason_for_rejection[LANGUAGE_NONE][0] = array('tid' => $form_state['values']['field_reason_for_rejection']);
-    
-    // Set the department
     $idea_node->field_rejection_notes[LANGUAGE_NONE][0] = array('value' => $form_state['values']['field_rejection_notes']);
     
-    // Update the workflow status
-    $idea_node->field_workflow_state[LANGUAGE_NONE][0] = array('tid' => TID_IDEA_STATUS_REJECTED);
+    // Update the workflow status and save
+    _common_functionality_update_idea_node_workflow_status($idea_node, TID_IDEA_STATUS_REJECTED);
     // END - Update values
-    
-    // Save the node
-    node_save($idea_node);
   }
   
   function idea_forms_idea_dept_review_form($form, &$form_state) {
