@@ -1,0 +1,58 @@
+<?php
+
+  // Define role constants
+  define( 'RID_ADMIN', 1 );
+  define( 'RID_IDEA_ADMIN', 4 );
+  define( 'RID_DEPARTMENT_ADMIN', 6 );
+
+  // Define permission constants
+  define( 'PERM_IDEA_ADMIN', 'Administrate ideas' );
+  define( 'PERM_REVIEW_NEW_IDEAS', 'Review new ideas for Terms of Use violations' );
+  define( 'PERM_PLAN_IDEA_IMPLEMENTATION', 'Plan how to implement ideas' );
+  
+  // Term constants
+  define( 'TID_IDEA_STATUS_NEW', 1 );
+  define( 'TID_IDEA_STATUS_READY_FOR_IMPLEMENTATION', 4 );
+  define( 'TID_IDEA_STATUS_REJECTED', 3 );
+  define( 'TID_IDEA_STATUS_UNDER_DEPARTMENT_REVIEW', 2 );
+
+  function common_functionality_permission() {
+    return array(
+      PERM_IDEA_ADMIN => array(
+        'title' => t(PERM_IDEA_ADMIN),
+        'description' => t('Administer ideas'),
+      ),
+      PERM_REVIEW_NEW_IDEAS => array(
+        'title' => t(PERM_REVIEW_NEW_IDEAS),
+        'description' => t('Review new ideas for violations of the Terms of Use'),
+      ),
+      PERM_PLAN_IDEA_IMPLEMENTATION => array(
+        'title' => t(PERM_PLAN_IDEA_IMPLEMENTATION),
+        'description' => t('Plan how to implement ideas'),
+      ),      
+    );
+  } 
+  
+  function common_functionality_init() {
+    // Get page node, if any, and put it into $GLOBALS
+    $page_node = menu_get_object();
+    if( is_object($page_node) && !empty($page_node->type) ) :
+      $GLOBALS['nodes']['page_node'] = $page_node;
+    endif;
+  }
+  
+  /**
+   * Take a date and return an array formatted for a drupal date field on a node
+   */
+  function _common_functionality_date_to_field( $date, $timezone = 'America/New_York' ) {
+    $date = date( 'Y-m-d H:i:s', strtotime($date) );
+    
+    $out = array(
+      'value' => $date,
+      'timezone' => $timezone,
+      'timezone_db' => $timezone,
+      'date_type' => 'datetime',
+    );
+
+    return $out;
+  }
